@@ -26,6 +26,7 @@
 			data : data,
 			rows : [],
 			delay : 0,
+			scrollDelay : 100,
 			tableClass : "",
 			sortList : [],
 			parsers : [],
@@ -42,17 +43,30 @@
 			defaultOrder : "asc",
 			cancelSelection : true,
 			// events
-			start : function(e, ui) {
+			scrollStart : function(e, ui) {
 				console.log("start");
 			},
-			stop : function(e, ui) {
+			scrollStop : function(e, ui) {
 				console.log("stop");
 			},
 			update : function(e, ui) {
 				console.log("update");
+			},
+			attach : function(index, row) {
+				console.log("attach");
+				return $("<tr><td>" + row.name + "</td></tr>");
+			},
+			detach : function(index, row, tr) {
+				tr.remove();
+				console.log("detach");
 			}
 		},
 		rowHeight : 0,
+		dataRange : {
+			start : -1,
+			end : -1,
+			range : {}
+		},
 		_create : function() {
 			var self = this;
 			if (typeof this.options.thead === "object") {
@@ -77,17 +91,11 @@
 			this.padding_after = $("<div>");
 			wrapper.insertAfter(this.element).append(this.padding_before, this.element, this.padding_after);
 
-//			this.options.data.each(function(v) {
-//				self.tbody.append("<tr><td>" + v.name + "</td></tr>");
-//			});
-
-			// determine the average height of a row
-			var fragment = $("<tr><td>sample</td></tr>").appendTo(this.tbody);
-			this.rowHeight = fragment.height();
-			fragment.remove();
+			this._determineRowHeight();
 
 			this.wrapper = wrapper;
 
+			// remove the header for now
 			this.thead.remove();
 
 			this._scroll(0);
@@ -114,21 +122,23 @@
 			// what is the assumed max height of all the rows
 			var max_height = this.options.data.length * this.rowHeight;
 
+			// calculate the proper padding
 			var top_padding = rows_start * this.rowHeight;
 			var bottom_padding = (Math.max(0, this.options.data.length - row_stop)) * this.rowHeight;
 
-			console.log(index, visible_rows, rows_start, row_stop);
-
-			// if we're close to the top, don't do anything
+			// set the proper spacing between the top and bottom of the table
 			this.padding_before.height(top_padding);
 			this.padding_after.height(bottom_padding);
 
+			// now set all the rows that should be seen!
 			this._setRows(rows_start, row_stop);
 
+			// set the
 			this.wrapper.scrollTop(top);
 		},
 		scroll : function(top) {
 			var self = this;
+			self._trigger("scrollStart", null, {});
 			if (self.scrollThrottle) {
 				clearTimeout(self.scrollThrottle);
 			}
@@ -136,7 +146,8 @@
 				clearTimeout(self.scrollThrottle);
 				self.scrollThrottle = null;
 				self._scroll(top);
-			}, 100);
+				self._trigger("scrollStop", null, {});
+			}, self.options.scrollDelay || 100);
 		},
 		update : function() {
 			var self = this;
@@ -156,20 +167,78 @@
 		_getDataSlice : function(start, end) {
 			return this.options.data.slice(start, end);
 		},
+
+		scrollBy : function(delta) {
+			this.wrapper.scrollTop(this.wrapper.scrollTop() + delta).trigger("scroll");
+		},
+		scrollTo : function(position) {
+			this.wrapper.scrollTop(position).trigger("scroll");
+		},
+
+		_determineRowHeight : function() {
+			// determine the average height of a row
+			var fragment = $("<tr><td>sample</td></tr>").appendTo(this.tbody);
+			this.rowHeight = fragment.height();
+			fragment.remove();
+			return this.rowHeight;
+		},
+
 		_setRows : function(start, end) {
 			var self = this;
-			var data = this._getDataSlice(start, end);
-			this.tbody.empty();
-			data.each(function(v) {
-				self.tbody.append("<tr><td>" + v.name + "</td></tr>");
+			// get the overlaps
+			var alter = this._determineOverlap(this.dataRange.start, this.dataRange.end, start, end);
+			// check if we are appending or prepending
+			var action = start >= this.dataRange.start ? "append" : "prepend";
+			// set modifiers
+			this.dataRange.start = start;
+			this.dataRange.end = end;
+			var data_range = this.dataRange.range || {};
+			var data = this.options.data;
+			var rows = [];
+
+			$.each(alter.remove, function(i, v) {
+				if (!data[v]) {
+					return;
+				}
+				self.options.detach(v, data[v], data_range[v]);
+				delete data_range[v];
 			});
+			$.each(alter.add, function(i, v) {
+				if (!data[v]) {
+					return;
+				}
+				var tr = self.options.attach(v, data[v]);
+				rows.push(tr);
+				data_range[v] = tr;
+			});
+
+			// cache the rows
+			this.dataRange.range = data_range;
+
+			// append or prepend the rows
+			this.tbody[action].apply(this.tbody, rows);
+		},
+		_determineOverlap : function(prev_start, prev_end, cur_start, cur_end) {
+			var i, remove = [], add = [];
+			for (i = prev_start; i <= prev_end; i++) {
+				if ((i < cur_start || i > cur_end) && i > -1) {
+					remove.push(i);
+				}
+			}
+			for (i = cur_start; i <= cur_end; i++) {
+				if ((i < prev_start || i > prev_end) && i > -1) {
+					add.push(i);
+				}
+			}
+			return {
+				add : add,
+				remove : remove
+			};
 		},
 		_update : function() {
 			this._trigger("update", null, {});
 
-			// calculate the height of all the rows
-			//this.scroll_stretch.height(this.options.data.length * this.rowHeight);
-
+			this._determineRowHeight();
 		},
 		replace : function(data) {
 
