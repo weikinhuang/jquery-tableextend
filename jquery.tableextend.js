@@ -12,26 +12,26 @@
  */
 (function($, undefined) {
 
-	var data = [];
-	for ( var i = 0; i < 10000; i++) {
-		data.push({
-			name : i + " index"
-		});
-	}
-
 	$.widget("ui.tableextend", {
 		widgetEventPrefix : "tableextend",
 		options : {
 			// cache & params
-			data : data,
-			dataLength : data.length,
-			rows : [],
-			delay : 0,
-			scrollDelay : 100,
-			tableClass : "",
+			// *********************** SCROLL PARAMS ***********************
+			data : [],
+			dataLength : 0,
+			visibleRows : 200,
+			paddedRows : 50,
+			// *********************** SCROLL PARAMS ***********************
+			// ************************ SORT PARAMS ************************
 			sortList : [],
 			parsers : [],
-			visibleRows : 200,
+			sortMultiSortKey : "shiftKey",
+			defaultOrder : "asc",
+			cancelSelection : true,
+			// ************************ SORT PARAMS ************************
+			delay : 0,
+			scrollDelay : 100,
+
 			// selection parameters
 			thead : "thead:first",
 			tbody : "tbody:first",
@@ -39,30 +39,31 @@
 			filter : "*",
 			childSelector : "",
 			headerSortSelector : "",
-			// sort parameters
-			sortMultiSortKey : "shiftKey",
-			defaultOrder : "asc",
-			cancelSelection : true,
+			// styling parameters
+			tableClass : "",
+			height : 100,
+			headerHeight : 0,
+			rowHeight : -1,
+
 			// events
 			scrollStart : function(e, ui) {
-				console.log("start");
+				// console.log("start");
 			},
 			scrollStop : function(e, ui) {
-				console.log("stop");
-			},
-			update : function(e, ui) {
-				console.log("update");
+				// console.log("stop");
 			},
 			attach : function(index, row) {
-				console.log("attach");
-				return $("<tr><td>" + row.name + "</td></tr>");
+				// console.log("attach");
+				return $("<tr><td>" + row + "</td></tr>");
 			},
 			detach : function(index, row, tr) {
+				// console.log("detach");
 				tr.remove();
-				console.log("detach");
+			},
+			update : function(e, ui) {
+				// console.log("update");
 			}
 		},
-		rowHeight : 0,
 		dataRange : {
 			start : -1,
 			end : -1,
@@ -70,17 +71,29 @@
 		},
 		_create : function() {
 			var self = this;
+			// keep a quick reference to the table head
 			if (typeof this.options.thead === "object") {
 				this.thead = $(this.options.thead).eq(0);
 			} else {
 				this.thead = this.element.find(this.options.thead).eq(0);
 			}
+
+			// keep a quick reference to the table body
 			if (typeof this.options.tbody === "object") {
 				this.tbody = $(this.options.tbody).eq(0);
 			} else {
 				this.tbody = this.element.find(this.options.tbody).eq(0);
 			}
 
+			// *********************** SCROLL LOGIC ***********************
+
+			// master container for the contents of the scrollable table, and fixed header
+			var container = $("<div>").css({
+				paddingTop : this.options.headerHeight + "px",
+				height : (this.options.height - this.options.headerHeight) + "px"
+			});
+
+			// wrapper for creating a scrollable area
 			var wrapper = $("<div>").css({
 				height : "100%",
 				overflowY : "auto",
@@ -88,25 +101,49 @@
 			}).bind("scroll", function() {
 				self.scroll(this.scrollTop);
 			});
+			// scrolled padding
 			this.padding_before = $("<div>");
 			this.padding_after = $("<div>");
-			wrapper.insertAfter(this.element).append(this.padding_before, this.element, this.padding_after);
+			container.insertAfter(this.element);
+			wrapper.append(this.padding_before, this.element, this.padding_after);
 
+			// the table element that will now hold the table's header
+			var theader = $("<table>").css({
+				top : 0,
+				left : 0,
+				position : "absolute",
+				width : "100%",
+				height : this.options.headerHeight + "px"
+			});
+			theader.append(this.thead, "<tbody>");
+
+			// put them all together
+			container.append(theader, wrapper);
+
+			// keep local references
+			this.container = container;
+			this.theader = theader;
+			this.wrapper = wrapper;
+
+			// bind the update function to call the local update function
 			this.element.bind("update", function() {
 				self.update();
 			});
 
-			this._determineRowHeight();
+			// remove any remaining headers and footers, as we can't use them
+			this.element.find("thead,tfoot").remove();
 
-			this.wrapper = wrapper;
+			// guess row height if possible
+			if (this.options.rowHeight === -1) {
+				this._determineRowHeight();
+			}
 
+			// force option setting of the data
 			this._setOption("data", this.options.data);
 
-			// remove the header for now
-			this.thead.remove();
+			// *********************** SCROLL LOGIC ***********************
 
-			this._scroll(0);
-
+			// run options to build the initial table view
 			this._update();
 		},
 		destroy : function() {
@@ -119,40 +156,18 @@
 						this.options.dataLength = value.length;
 					}
 					break;
+				case "height":
+					this.container.css("height", value - this.options.headerHeight);
+					break;
+				case "headerHeight":
+					this.container.css("height", this.options.height - value);
+					this.theader.css("height", value);
+					break;
 			}
 			return $.Widget.prototype._setOption.apply(this, arguments);
 		},
-		_scroll : function(top) {
-			// figure out what row we're supposed to be seeing
-			var index = Math.min(Math.max(0, Math.floor(top / this.rowHeight)), this.options.dataLength);
 
-			// how many rows to store before and after
-			var padded_rows = 100;
-
-			// how many rows are we supposed to be seeing?
-			var visible_rows = this.options.visibleRows;
-			// how many rows are supposed to be between the top and where we are
-			var rows_start = Math.max(0, index - padded_rows);
-			// how many rows are supposed to be between the top and where we are
-			var row_stop = Math.min(visible_rows + index + padded_rows, this.options.dataLength);
-
-			// what is the assumed max height of all the rows
-			var max_height = this.options.dataLength * this.rowHeight;
-
-			// calculate the proper padding
-			var top_padding = rows_start * this.rowHeight;
-			var bottom_padding = (Math.max(0, this.options.dataLength - row_stop)) * this.rowHeight;
-
-			// set the proper spacing between the top and bottom of the table
-			this.padding_before.height(top_padding);
-			this.padding_after.height(bottom_padding);
-
-			// now set all the rows that should be seen!
-			this._setRows(rows_start, row_stop);
-
-			// set the
-			this.wrapper.scrollTop(top);
-		},
+		// *********************** SCROLL LOGIC ***********************
 		scroll : function(top) {
 			var self = this;
 			self._trigger("scrollStart", null, {
@@ -196,11 +211,39 @@
 		_determineRowHeight : function() {
 			// determine the average height of a row
 			var fragment = $("<tr><td>sample</td></tr>").appendTo(this.tbody);
-			this.rowHeight = fragment.height();
+			this.options.rowHeight = fragment.height();
 			fragment.remove();
-			return this.rowHeight;
+			return this.options.rowHeight;
 		},
 
+		_scroll : function(top) {
+			// figure out what row we're supposed to be seeing
+			var index = Math.min(Math.max(0, Math.floor(top / this.options.rowHeight)), this.options.dataLength);
+
+			// how many rows are we supposed to be seeing?
+			var visible_rows = this.options.visibleRows;
+			// how many rows are supposed to be between the top and where we are
+			var rows_start = Math.max(0, index - this.options.paddedRows);
+			// how many rows are supposed to be between the top and where we are
+			var row_stop = Math.min(visible_rows + index + this.options.paddedRows, this.options.dataLength);
+
+			// what is the assumed max height of all the rows
+			var max_height = this.options.dataLength * this.options.rowHeight;
+
+			// calculate the proper padding
+			var top_padding = rows_start * this.options.rowHeight;
+			var bottom_padding = (Math.max(0, this.options.dataLength - row_stop)) * this.options.rowHeight;
+
+			// set the proper spacing between the top and bottom of the table
+			this.padding_before.height(top_padding);
+			this.padding_after.height(bottom_padding);
+
+			// now set all the rows that should be seen!
+			this._setRows(rows_start, row_stop);
+
+			// set the
+			this.wrapper.scrollTop(top);
+		},
 		_getDataSlice : function(start, end, callback) {
 			var self = this;
 			if (typeof this.options.data === "function") {
@@ -277,16 +320,17 @@
 				remove : remove
 			};
 		},
+		// *********************** SCROLL LOGIC ***********************
+
 		_update : function() {
 			this._trigger("update", null, {});
 
-			this._determineRowHeight();
-
 			this.scrollTo(0);
 		},
+
 		empty : function() {
 			// empty the table
-			this.tbody.empty()
+			this.tbody.empty();
 
 			// run a rebuild
 			this.update();
