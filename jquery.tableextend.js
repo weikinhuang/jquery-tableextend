@@ -24,6 +24,7 @@
 		options : {
 			// cache & params
 			data : data,
+			dataLength : data.length,
 			rows : [],
 			delay : 0,
 			scrollDelay : 100,
@@ -91,9 +92,15 @@
 			this.padding_after = $("<div>");
 			wrapper.insertAfter(this.element).append(this.padding_before, this.element, this.padding_after);
 
+			this.element.bind("update", function() {
+				self.update();
+			});
+
 			this._determineRowHeight();
 
 			this.wrapper = wrapper;
+
+			this._setOption("data", this.options.data);
 
 			// remove the header for now
 			this.thead.remove();
@@ -105,9 +112,19 @@
 		destroy : function() {
 			$.Widget.prototype.destroy.apply(this);
 		},
+		_setOption : function(key, value) {
+			switch (key) {
+				case "data":
+					if ($.isArray(value)) {
+						this.options.dataLength = value.length;
+					}
+					break;
+			}
+			return $.Widget.prototype._setOption.apply(this, arguments);
+		},
 		_scroll : function(top) {
 			// figure out what row we're supposed to be seeing
-			var index = Math.min(Math.max(0, Math.floor(top / this.rowHeight)), this.options.data.length);
+			var index = Math.min(Math.max(0, Math.floor(top / this.rowHeight)), this.options.dataLength);
 
 			// how many rows to store before and after
 			var padded_rows = 100;
@@ -117,14 +134,14 @@
 			// how many rows are supposed to be between the top and where we are
 			var rows_start = Math.max(0, index - padded_rows);
 			// how many rows are supposed to be between the top and where we are
-			var row_stop = Math.min(visible_rows + index + padded_rows, this.options.data.length);
+			var row_stop = Math.min(visible_rows + index + padded_rows, this.options.dataLength);
 
 			// what is the assumed max height of all the rows
-			var max_height = this.options.data.length * this.rowHeight;
+			var max_height = this.options.dataLength * this.rowHeight;
 
 			// calculate the proper padding
 			var top_padding = rows_start * this.rowHeight;
-			var bottom_padding = (Math.max(0, this.options.data.length - row_stop)) * this.rowHeight;
+			var bottom_padding = (Math.max(0, this.options.dataLength - row_stop)) * this.rowHeight;
 
 			// set the proper spacing between the top and bottom of the table
 			this.padding_before.height(top_padding);
@@ -138,7 +155,9 @@
 		},
 		scroll : function(top) {
 			var self = this;
-			self._trigger("scrollStart", null, {});
+			self._trigger("scrollStart", null, {
+				top : top
+			});
 			if (self.scrollThrottle) {
 				clearTimeout(self.scrollThrottle);
 			}
@@ -146,7 +165,9 @@
 				clearTimeout(self.scrollThrottle);
 				self.scrollThrottle = null;
 				self._scroll(top);
-				self._trigger("scrollStop", null, {});
+				self._trigger("scrollStop", null, {
+					top : top
+				});
 			}, self.options.scrollDelay || 100);
 		},
 		update : function() {
@@ -164,9 +185,6 @@
 				self._update();
 			}, self.options.delay);
 		},
-		_getDataSlice : function(start, end) {
-			return this.options.data.slice(start, end);
-		},
 
 		scrollBy : function(delta) {
 			this.wrapper.scrollTop(this.wrapper.scrollTop() + delta).trigger("scroll");
@@ -183,7 +201,29 @@
 			return this.rowHeight;
 		},
 
+		_getDataSlice : function(start, end, callback) {
+			var self = this;
+			if (typeof this.options.data === "function") {
+				this.wrapper.addClass("ui-loading");
+				this.options.data.call(this.element, function(data) {
+					self.wrapper.removeClass("ui-loading");
+					callback(data);
+				}, {
+					start : start,
+					end : end,
+					sort : []
+				});
+			} else {
+				callback(this.options.data.slice(start, end));
+			}
+		},
 		_setRows : function(start, end) {
+			var self = this;
+			this._getDataSlice(start, end, function(data) {
+				self._manipulateTable(start, end, data);
+			});
+		},
+		_manipulateTable : function(start, end, data) {
 			var self = this;
 			// get the overlaps
 			var alter = this._determineOverlap(this.dataRange.start, this.dataRange.end, start, end);
@@ -193,23 +233,25 @@
 			this.dataRange.start = start;
 			this.dataRange.end = end;
 			var data_range = this.dataRange.range || {};
-			var data = this.options.data;
 			var rows = [];
 
 			$.each(alter.remove, function(i, v) {
-				if (!data[v]) {
+				if (!data_range[v]) {
 					return;
 				}
-				self.options.detach(v, data[v], data_range[v]);
+				self.options.detach(v, data_range[v].data, data_range[v].tr);
 				delete data_range[v];
 			});
 			$.each(alter.add, function(i, v) {
-				if (!data[v]) {
+				if (!data[v - start]) {
 					return;
 				}
-				var tr = self.options.attach(v, data[v]);
+				var tr = self.options.attach(v, data[v - start]);
 				rows.push(tr);
-				data_range[v] = tr;
+				data_range[v] = {
+					tr : tr,
+					data : data[v - start]
+				};
 			});
 
 			// cache the rows
@@ -239,21 +281,12 @@
 			this._trigger("update", null, {});
 
 			this._determineRowHeight();
-		},
-		replace : function(data) {
 
-			// run a rebuild
-			this.update();
-		},
-		append : function(data) {
-			// add the rows to the existing set of rows
-
-			// run a rebuild
-			this.update();
+			this.scrollTo(0);
 		},
 		empty : function() {
-
-			this.element.empty();
+			// empty the table
+			this.tbody.empty()
 
 			// run a rebuild
 			this.update();
