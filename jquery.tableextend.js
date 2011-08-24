@@ -23,8 +23,7 @@
 			paddedRows : 50,
 			// *********************** SCROLL PARAMS ***********************
 			// ************************ SORT PARAMS ************************
-			sortList : [],
-			parsers : [],
+			parsers : null,
 			sortMultiSortKey : "shiftKey",
 			defaultOrder : "asc",
 			cancelSelection : true,
@@ -35,7 +34,7 @@
 			// selection parameters
 			thead : "thead:first",
 			tbody : "tbody:first",
-			headers : "thead:first tr:first th",
+			headers : "tr:first th",
 			filter : "*",
 			childSelector : "",
 			headerSortSelector : "",
@@ -47,10 +46,16 @@
 
 			// events
 			scrollStart : function(e, ui) {
-				// console.log("start");
+				// console.log("scrollStart");
 			},
 			scrollStop : function(e, ui) {
-				// console.log("stop");
+				// console.log("scrollStop");
+			},
+			sortStart : function(e, ui) {
+				// console.log("sortStart");
+			},
+			sortStop : function(e, ui) {
+				// console.log("sortStop");
 			},
 			attach : function(index, row) {
 				// console.log("attach");
@@ -69,6 +74,8 @@
 			end : -1,
 			range : {}
 		},
+		headers : null,
+		sortList : null,
 		_create : function() {
 			var self = this;
 			// keep a quick reference to the table head
@@ -142,6 +149,12 @@
 			this._setOption("data", this.options.data);
 
 			// *********************** SCROLL LOGIC ***********************
+
+			// ************************ SORT LOGIC ************************
+			this.headers = [];
+			this.sortList = [];
+			this._loadSortHeaders();
+			// ************************ SORT LOGIC ************************
 
 			// run options to build the initial table view
 			this._update();
@@ -321,6 +334,95 @@
 			};
 		},
 		// *********************** SCROLL LOGIC ***********************
+
+		// ************************ SORT LOGIC ************************
+		_loadSortHeaders : function() {
+			var self = this;
+			this.headers = [];
+			this.thead.find(this.options.headers).each(function(i) {
+				// here we want to bind the events for sorting
+				var sort_trigger = $(this);
+
+				self.headers.push((sort_trigger.is("td,th") ? sort_trigger : sort_trigger.closest("td,th")).addClass("ui-tableextend-header"));
+
+				if (self.options.headerSortSelector) {
+					sort_trigger = sort_trigger.find(self.options.headerSortSelector);
+				}
+
+				if (self.options.parsers[i] == null || self.options.parsers[i] === false) {
+					sort_trigger.bind("click.tableextend", function(e) {
+						e.preventDefault();
+						return false;
+					});
+					return;
+				} else {
+					sort_trigger.bind("click.tableextend", function(e) {
+						e.preventDefault();
+						self._triggerSort(i, self._getSortOrder(i), e[self.options.sortMultiSortKey]);
+						return false;
+					});
+				}
+				if (self.options.cancelSelection) {
+					sort_trigger.disableSelection();
+				}
+			});
+		},
+		_triggerSort : function(index, type, append) {
+			var t, i, l;
+			if (!append) {
+				this.sortList = [];
+			} else {
+				t = [];
+				for (i = 0, l = this.sortList.length; i < l; i++) {
+					if (this.sortList[i].index != index) {
+						t.push(this.sortList[i]);
+					}
+				}
+				this.sortList = t;
+			}
+			this.sortList.push({
+				index : index,
+				order : this._sanitizeSortOrder(type)
+			});
+			if (this._trigger("sortStart", null, {}) === false) {
+				this._trigger("sortStop", null, {
+					sort : []
+				});
+				return;
+			}
+			this._updateHeaderCss(this.sortList);
+			//this._updateTableOrder();
+			this._trigger("sortStop", null, {
+				sort : $.map(this.sortList, function(o) {
+					return {
+						index : o.index,
+						order : o.order == "asc" ? 1 : -1
+					};
+				})
+			});
+		},
+		_updateHeaderCss : function(sort) {
+			$.each(this.headers, function() {
+				this.removeClass("ui-tableextend-sort-asc ui-tableextend-sort-desc");
+			});
+			var i, l = sort.length;
+			for (i = 0; i < l; i++) {
+				this.headers[sort[i].index].addClass("ui-tablegrid-sort-" + sort[i].order);
+			}
+		},
+		_getSortOrder : function(i) {
+			var n, l = this.sortList.length;
+			for (n = 0; n < l; n++) {
+				if (this.sortList[n].index == i) {
+					return this._sanitizeSortOrder(this.sortList[n].order) == "asc" ? "desc" : "asc";
+				}
+			}
+			return this._sanitizeSortOrder(this.options.defaultOrder);
+		},
+		_sanitizeSortOrder : function(type) {
+			return type == 1 || (type + "").toLowerCase() == "asc" ? "asc" : "desc";
+		},
+		// ************************ SORT LOGIC ************************
 
 		_update : function() {
 			this._trigger("update", null, {});
