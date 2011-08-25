@@ -236,7 +236,7 @@
 			// how many rows are we supposed to be seeing?
 			var visible_rows = this.options.visibleRows;
 			// how many rows are supposed to be between the top and where we are
-			var rows_start = Math.max(0, index - this.options.paddedRows);
+			var rows_start = Math.max(0, Math.min(index - this.options.paddedRows, this.options.dataLength - this.options.paddedRows - visible_rows));
 			// how many rows are supposed to be between the top and where we are
 			var row_stop = Math.min(visible_rows + index + this.options.paddedRows, this.options.dataLength);
 
@@ -257,7 +257,7 @@
 			// set the
 			this.wrapper.scrollTop(top);
 		},
-		_getDataSlice : function(start, end, callback) {
+		_getDataSlice : function(start, end, callback, sort) {
 			var self = this;
 			if (typeof this.options.data === "function") {
 				this.wrapper.addClass("ui-loading");
@@ -267,22 +267,22 @@
 				}, {
 					start : start,
 					end : end,
-					sort : []
+					sort : sort || []
 				});
 			} else {
 				callback(this.options.data.slice(start, end));
 			}
 		},
-		_setRows : function(start, end) {
+		_setRows : function(start, end, sort_list) {
 			var self = this;
 			this._getDataSlice(start, end, function(data) {
-				self._manipulateTable(start, end, data);
-			});
+				self._manipulateTable(start, end, data, sort_list != null);
+			}, sort_list);
 		},
-		_manipulateTable : function(start, end, data) {
+		_manipulateTable : function(start, end, data, empty_table) {
 			var self = this;
 			// get the overlaps
-			var alter = this._determineOverlap(this.dataRange.start, this.dataRange.end, start, end);
+			var alter = this._determineOverlap(this.dataRange.start, this.dataRange.end, start, end, empty_table);
 			// check if we are appending or prepending
 			var action = start >= this.dataRange.start ? "append" : "prepend";
 			// set modifiers
@@ -316,15 +316,15 @@
 			// append or prepend the rows
 			this.tbody[action].apply(this.tbody, rows);
 		},
-		_determineOverlap : function(prev_start, prev_end, cur_start, cur_end) {
+		_determineOverlap : function(prev_start, prev_end, cur_start, cur_end, empty_table) {
 			var i, remove = [], add = [];
 			for (i = prev_start; i <= prev_end; i++) {
-				if ((i < cur_start || i > cur_end) && i > -1) {
+				if ((i < cur_start || i > cur_end || empty_table) && i > -1) {
 					remove.push(i);
 				}
 			}
 			for (i = cur_start; i <= cur_end; i++) {
-				if ((i < prev_start || i > prev_end) && i > -1) {
+				if ((i < prev_start || i > prev_end || empty_table) && i > -1) {
 					add.push(i);
 				}
 			}
@@ -391,7 +391,7 @@
 				return;
 			}
 			this._updateHeaderCss(this.sortList);
-			//this._updateTableOrder();
+			this._updateTableOrder(this.sortList);
 			this._trigger("sortStop", null, {
 				sort : $.map(this.sortList, function(o) {
 					return {
@@ -407,7 +407,7 @@
 			});
 			var i, l = sort.length;
 			for (i = 0; i < l; i++) {
-				this.headers[sort[i].index].addClass("ui-tablegrid-sort-" + sort[i].order);
+				this.headers[sort[i].index].addClass("ui-tableextend-sort-" + sort[i].order);
 			}
 		},
 		_getSortOrder : function(i) {
@@ -421,6 +421,27 @@
 		},
 		_sanitizeSortOrder : function(type) {
 			return type == 1 || (type + "").toLowerCase() == "asc" ? "asc" : "desc";
+		},
+		_processSortList : function(sort_list) {
+			var self = this, final_sort_order = [];
+			$.each(sort_list, function(i, v) {
+				var indexer = self.options.parsers[v.index] || {};
+				final_sort_order.push({
+					index : v.index,
+					order : v.order,
+					name : indexer.name || "",
+					callback : indexer.callback || null
+				});
+			});
+			return final_sort_order;
+		},
+		_updateTableOrder : function(sort_list) {
+			var self = this, sort_order = this._processSortList(sort_list);
+			if (typeof this.options.data !== "function") {
+				// we'll just sort the data locally
+				this.options.data = $.ui.tableextend.sortMulti(this.options.data, sort_order);
+			}
+			this._setRows(this.dataRange.start, this.dataRange.end, sort_order);
 		},
 		// ************************ SORT LOGIC ************************
 
@@ -436,6 +457,45 @@
 
 			// run a rebuild
 			this.update();
+		}
+	});
+
+	$.extend($.ui.tableextend, {
+		sortAsc : function(rows, index) {
+			return rows.slice(0).sort(function(a, b) {
+				var a_val = index.callback ? index.callback(a) : (a[index.name] || "");
+				var b_val = index.callback ? index.callback(b) : (b[index.name] || "");
+				return ((a_val < b_val) ? -1 : ((a_val > b_val) ? 1 : 0));
+			});
+		},
+		sortDesc : function(rows, index) {
+			return rows.slice(0).sort(function(a, b) {
+				var a_val = index.callback ? index.callback(a) : (a[index.name] || "");
+				var b_val = index.callback ? index.callback(b) : (b[index.name] || "");
+				return ((b_val < a_val) ? -1 : ((b_val > a_val) ? 1 : 0));
+			});
+		},
+		sortMulti : function(rows, indicies) {
+			if (indicies.length === 0) {
+				return rows.slice(0);
+			}
+			if (indicies.length === 1) {
+				return $.ui.tableextend["sort" + (indicies[0].order === "asc" ? "Asc" : "Desc")](rows, indicies[0]);
+			}
+			var l = indicies.length - 1;
+			return rows.slice(0).sort(function(a, b) {
+				var i = 0, a_val, b_val;
+				do {
+					a_val = indicies[i].callback ? indicies[i].callback(a) : (a[indicies[i].name] || "");
+					b_val = indicies[i].callback ? indicies[i].callback(b) : (b[indicies[i].name] || "");
+				} while (a_val == b_val && ++i < l);
+				a_val = indicies[i].callback ? indicies[i].callback(a) : (a[indicies[i].name] || "");
+				b_val = indicies[i].callback ? indicies[i].callback(b) : (b[indicies[i].name] || "");
+				if (indicies[i].order === "asc") {
+					return ((a_val < b_val) ? -1 : ((a_val > b_val) ? 1 : 0));
+				}
+				return ((b_val < a_val) ? -1 : ((b_val > a_val) ? 1 : 0));
+			});
 		}
 	});
 })(jQuery);
