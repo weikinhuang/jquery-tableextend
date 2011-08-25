@@ -35,8 +35,6 @@
 			thead : "thead:first",
 			tbody : "tbody:first",
 			headers : "tr:first th",
-			filter : "*",
-			childSelector : "",
 			headerSortSelector : "",
 			// styling parameters
 			tableClass : "",
@@ -101,21 +99,21 @@
 			});
 
 			// wrapper for creating a scrollable area
-			var wrapper = $("<div>").css({
+			var wrapper = $("<div>").addClass("ui-tableextend ui-tableextend-wrapper ui-widget ui-helper-reset").css({
 				height : "100%",
 				overflowY : "auto",
 				overflowX : "hidden"
-			}).bind("scroll", function() {
+			}).bind("scroll.tableextend", function() {
 				self.scroll(this.scrollTop);
 			});
 			// scrolled padding
-			this.padding_before = $("<div>");
-			this.padding_after = $("<div>");
+			this.padding_before = $("<div>").addClass("ui-tableextend ui-tableextend-padding ui-tableextend-padding-top");
+			this.padding_after = $("<div>").addClass("ui-tableextend ui-tableextend-padding ui-tableextend-padding-bottom");
 			container.insertAfter(this.element);
 			wrapper.append(this.padding_before, this.element, this.padding_after);
 
 			// the table element that will now hold the table's header
-			var theader = $("<table>").css({
+			var theader = $("<table>").addClass(this.element.attr("class") + " ui-tableextend-header-container").css({
 				top : 0,
 				left : 0,
 				position : "absolute",
@@ -123,6 +121,7 @@
 				height : this.options.headerHeight + "px"
 			});
 			theader.append(this.thead, "<tbody>");
+			this.element.addClass("ui-tableextend-body");
 
 			// put them all together
 			container.append(theader, wrapper);
@@ -133,7 +132,7 @@
 			this.wrapper = wrapper;
 
 			// bind the update function to call the local update function
-			this.element.bind("update", function() {
+			this.element.bind("update.tableextend", function() {
 				self.update();
 			});
 
@@ -167,6 +166,8 @@
 				case "data":
 					if ($.isArray(value)) {
 						this.options.dataLength = value.length;
+						// make a shallow copy of the data
+						value = value.slice(0);
 					}
 					break;
 				case "height":
@@ -177,7 +178,7 @@
 					this.theader.css("height", value);
 					break;
 			}
-			return $.Widget.prototype._setOption.apply(this, arguments);
+			return $.Widget.prototype._setOption.call(this, key, value);
 		},
 
 		// *********************** SCROLL LOGIC ***********************
@@ -236,7 +237,7 @@
 			// how many rows are we supposed to be seeing?
 			var visible_rows = this.options.visibleRows;
 			// how many rows are supposed to be between the top and where we are
-			var rows_start = Math.max(0, Math.min(index - this.options.paddedRows, this.options.dataLength - this.options.paddedRows - visible_rows));
+			var rows_start = Math.max(0, Math.min(index - this.options.paddedRows, this.options.dataLength - this.options.paddedRows - Math.floor(visible_rows / 2)));
 			// how many rows are supposed to be between the top and where we are
 			var row_stop = Math.min(visible_rows + index + this.options.paddedRows, this.options.dataLength);
 
