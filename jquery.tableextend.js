@@ -74,6 +74,7 @@
 		},
 		headers : null,
 		sortList : null,
+		resetTable : false,
 		_create : function() {
 			var self = this;
 			// keep a quick reference to the table head
@@ -182,6 +183,7 @@
 						// make a shallow copy of the data
 						value = value.slice(0);
 					}
+					this.resetTable = true;
 					break;
 				case "height":
 					this.container.css("height", value - this.options.headerHeight);
@@ -296,7 +298,9 @@
 		_manipulateTable : function(start, end, data, empty_table) {
 			var self = this;
 			// get the overlaps
-			var alter = this._determineOverlap(this.dataRange.start, this.dataRange.end, start, end, empty_table);
+			var alter = this._determineOverlap(this.dataRange.start, this.dataRange.end, start, end, empty_table || this.resetTable);
+			// make sure we set this back to false afterwards
+			this.resetTable = false;
 			// check if we are appending or prepending
 			var action = start >= this.dataRange.start ? "append" : "prepend";
 			// set modifiers
