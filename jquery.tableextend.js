@@ -252,7 +252,7 @@
 			// how many rows are we supposed to be seeing?
 			var visible_rows = this.options.visibleRows;
 			// how many rows are supposed to be between the top and where we are
-			var rows_start = Math.max(0, Math.min(index - this.options.paddedRows, this.options.dataLength - this.options.paddedRows - Math.floor(visible_rows / 2)));
+			var row_start = Math.max(0, Math.min(index - this.options.paddedRows, this.options.dataLength - this.options.paddedRows - Math.floor(visible_rows / 2)));
 			// how many rows are supposed to be between the top and where we are
 			var row_stop = Math.min(visible_rows + index + this.options.paddedRows, this.options.dataLength);
 
@@ -260,7 +260,7 @@
 			var max_height = this.options.dataLength * this.options.rowHeight;
 
 			// calculate the proper padding
-			var top_padding = rows_start * this.options.rowHeight;
+			var top_padding = row_start * this.options.rowHeight;
 			var bottom_padding = (Math.max(0, this.options.dataLength - row_stop)) * this.options.rowHeight;
 
 			// set the proper spacing between the top and bottom of the table
@@ -268,7 +268,7 @@
 			this.padding_after.height(bottom_padding);
 
 			// now set all the rows that should be seen!
-			this._setRows(rows_start, row_stop);
+			this._setRows(row_start, row_stop);
 
 			// set the
 			this.wrapper.scrollTop(top);
