@@ -108,18 +108,6 @@
 				self.scroll(this.scrollTop);
 			});
 
-			var touch_scroll_pos = 0;
-			// if this is a touch device, add 1 finger scrolling support
-			if ("ontouchstart" in window) {
-				//wrapper.bind('touchstart.tableextend', function(event) {
-				//	touch_scroll_pos = this.scrollTop + event.originalEvent.touches[0].pageY;
-				//	event.preventDefault();
-				//}).bind('touchmove.tableextend', function(event) {
-				//	wrapper.scrollTop(touch_scroll_pos - event.originalEvent.touches[0].pageY);
-				//	event.preventDefault();
-				//});
-			}
-
 			// scrolled padding
 			this.padding_before = $("<div>").addClass("ui-tableextend ui-tableextend-padding ui-tableextend-padding-top");
 			this.padding_after = $("<div>").addClass("ui-tableextend ui-tableextend-padding ui-tableextend-padding-bottom");
@@ -194,6 +182,9 @@
 					break;
 			}
 			return $.Widget.prototype._setOption.call(this, key, value);
+		},
+		getWrapper : function(){
+			return this.wrapper;
 		},
 
 		// *********************** SCROLL LOGIC ***********************
