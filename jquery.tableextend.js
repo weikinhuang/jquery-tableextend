@@ -19,7 +19,6 @@
 			// *********************** SCROLL PARAMS ***********************
 			data : [],
 			dataLength : 0,
-			visibleRows : 200,
 			paddedRows : 50,
 			// *********************** SCROLL PARAMS ***********************
 			// ************************ SORT PARAMS ************************
@@ -241,7 +240,7 @@
 			var index = Math.min(Math.max(0, Math.floor(top / this.options.rowHeight)), this.options.dataLength);
 
 			// how many rows are we supposed to be seeing?
-			var visible_rows = this.options.visibleRows;
+			var visible_rows = Math.ceil(this.options.height / this.options.rowHeight) + 2;
 			// how many rows are supposed to be between the top and where we are
 			var row_start = Math.max(0, Math.min(index - this.options.paddedRows, this.options.dataLength - this.options.paddedRows - Math.floor(visible_rows / 2)));
 			// how many rows are supposed to be between the top and where we are
