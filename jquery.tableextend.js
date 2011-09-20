@@ -27,8 +27,8 @@
 			defaultOrder : "asc",
 			cancelSelection : true,
 			// ************************ SORT PARAMS ************************
-			delay : 0,
-			scrollDelay : 100,
+			delay : 500,
+			scrollDelay : 500,
 
 			// selection parameters
 			thead : "thead:first",
