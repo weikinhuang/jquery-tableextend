@@ -182,7 +182,7 @@
 			}
 			return $.Widget.prototype._setOption.call(this, key, value);
 		},
-		getWrapper : function(){
+		getWrapper : function() {
 			return this.wrapper;
 		},
 
@@ -238,9 +238,17 @@
 		_scroll : function(top) {
 			// figure out what row we're supposed to be seeing
 			var index = Math.min(Math.max(0, Math.floor(top / this.options.rowHeight)), this.options.dataLength);
+			// always make sure index is a even
+			if (index > 0 && index % 2 === 1) {
+				index--;
+			}
 
 			// how many rows are we supposed to be seeing?
 			var visible_rows = Math.ceil(this.options.height / this.options.rowHeight) + 2;
+			// always make sure visible_rows is a even
+			if (visible_rows > 0 && visible_rows % 2 === 1) {
+				visible_rows++;
+			}
 			// how many rows are supposed to be between the top and where we are
 			var row_start = Math.max(0, Math.min(index - this.options.paddedRows, this.options.dataLength - this.options.paddedRows - Math.floor(visible_rows / 2)));
 			// how many rows are supposed to be between the top and where we are
