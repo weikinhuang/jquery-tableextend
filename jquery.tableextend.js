@@ -114,7 +114,7 @@
 			wrapper.append(this.padding_before, this.element, this.padding_after);
 
 			// the table element that will now hold the table's header
-			var theader = $("<table>").addClass(this.element.attr("class") + " ui-tableextend-header-container").css({
+			var theader = $("<table>").addClass((this.element.attr("class") || "") + " ui-tableextend-header-container").css({
 				top : 0,
 				left : 0,
 				position : "absolute",
