@@ -58,9 +58,9 @@
 				// console.log("attach");
 				return $("<tr><td>" + row + "</td></tr>");
 			},
-			detach : function(index, row, tr) {
+			detach : function(indexes, rows) {
 				// console.log("detach");
-				tr.remove();
+				rows.remove();
 			},
 			update : function(e, ui) {
 				// console.log("update");
@@ -69,7 +69,6 @@
 		dataRange : {
 			start : -1,
 			end : -1,
-			range : {}
 		},
 		headers : null,
 		sortList : null,
@@ -254,9 +253,6 @@
 			// how many rows are supposed to be between the top and where we are
 			var row_stop = Math.min(visible_rows + index + this.options.paddedRows, this.options.dataLength);
 
-			// what is the assumed max height of all the rows
-			var max_height = this.options.dataLength * this.options.rowHeight;
-
 			// calculate the proper padding
 			var top_padding = row_start * this.options.rowHeight;
 			var bottom_padding = (Math.max(0, this.options.dataLength - row_stop)) * this.options.rowHeight;
@@ -301,33 +297,33 @@
 			this.resetTable = false;
 			// check if we are appending or prepending
 			var action = start >= this.dataRange.start ? "append" : "prepend";
-			// set modifiers
-			this.dataRange.start = start;
-			this.dataRange.end = end;
-			var data_range = this.dataRange.range || {};
+			// placeholder
 			var rows = [];
+			// rows to be removed
+			var slice;
 
-			$.each(alter.remove, function(i, v) {
-				if (!data_range[v]) {
-					return;
+			// remove if necessary
+			if (alter.remove.length > 0) {
+				// remove from head
+				if (alter.remove[0] === this.dataRange.start) {
+					slice = this.tbody.find("tr").slice(0, alter.remove.length);
+				} else {
+					// remove from end
+					slice = this.tbody.find("tr").slice(-1 * alter.remove.length);
 				}
-				self.options.detach(v, data_range[v].data, data_range[v].tr);
-				delete data_range[v];
-			});
+				this.options.detach(alter.remove, slice);
+			}
+			// add if nencessary
 			$.each(alter.add, function(i, v) {
 				if (!data[v - start]) {
 					return;
 				}
-				var tr = self.options.attach(v, data[v - start]);
-				rows.push(tr);
-				data_range[v] = {
-					tr : tr,
-					data : data[v - start]
-				};
+				rows.push(self.options.attach(v, data[v - start]));
 			});
 
-			// cache the rows
-			this.dataRange.range = data_range;
+			// set modifiers
+			this.dataRange.start = start;
+			this.dataRange.end = end;
 
 			// append or prepend the rows
 			this.tbody[action].apply(this.tbody, rows);
