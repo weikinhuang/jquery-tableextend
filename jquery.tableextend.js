@@ -225,6 +225,9 @@
 		scrollTo : function(position) {
 			this.wrapper.scrollTop(position).trigger("scroll");
 		},
+		scrollIndex : function(index) {
+			this.wrapper.scrollTop(index * this.options.rowHeight).trigger("scroll");
+		},
 
 		_determineRowHeight : function() {
 			// determine the average height of a row
