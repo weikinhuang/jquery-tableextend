@@ -20,6 +20,7 @@
 			data : [],
 			dataLength : 0,
 			paddedRows : 50,
+			updateThreshold : 0,
 			// *********************** SCROLL PARAMS ***********************
 			// ************************ SORT PARAMS ************************
 			parsers : null,
@@ -163,21 +164,21 @@
 		},
 		_setOption : function(key, value) {
 			switch (key) {
-				case "data":
-					if ($.isArray(value)) {
-						this.options.dataLength = value.length;
-						// make a shallow copy of the data
-						value = value.slice(0);
-					}
-					this.resetTable = true;
-					break;
-				case "height":
-					this.container.css("height", value - this.options.headerHeight);
-					break;
-				case "headerHeight":
-					this.container.css("height", this.options.height - value);
-					this.theader.css("height", value);
-					break;
+			case "data":
+				if ($.isArray(value)) {
+					this.options.dataLength = value.length;
+					// make a shallow copy of the data
+					value = value.slice(0);
+				}
+				this.resetTable = true;
+				break;
+			case "height":
+				this.container.css("height", value - this.options.headerHeight);
+				break;
+			case "headerHeight":
+				this.container.css("height", this.options.height - value);
+				this.theader.css("height", value);
+				break;
 			}
 			return $.Widget.prototype._setOption.call(this, key, value);
 		},
@@ -205,18 +206,18 @@
 		},
 		update : function() {
 			var self = this;
-			if (!self.options.delay) {
+			if (!this.options.delay) {
 				self._update();
 				return;
 			}
-			if (self.updateThrottle) {
-				clearTimeout(self.updateThrottle);
+			if (this.updateThrottle) {
+				clearTimeout(this.updateThrottle);
 			}
-			self.updateThrottle = setTimeout(function() {
+			this.updateThrottle = setTimeout(function() {
 				clearTimeout(self.updateThrottle);
 				self.updateThrottle = null;
 				self._update();
-			}, self.options.delay);
+			}, this.options.delay);
 		},
 
 		scrollBy : function(delta) {
@@ -232,12 +233,17 @@
 		_determineRowHeight : function() {
 			// determine the average height of a row
 			var fragment = $("<tr><td>sample</td></tr>").appendTo(this.tbody);
-			this.options.rowHeight = fragment.height();
+			this.options.rowHeight = fragment.outerHeight();
 			fragment.remove();
 			return this.options.rowHeight;
 		},
 
 		_scroll : function(top) {
+			// no data, no scrolling
+			if (this.options.dataLength <= 0) {
+				return;
+			}
+
 			// figure out what row we're supposed to be seeing
 			var index = Math.min(Math.max(0, Math.floor(top / this.options.rowHeight)), this.options.dataLength);
 			// always make sure index is a even
@@ -260,42 +266,51 @@
 			var top_padding = row_start * this.options.rowHeight;
 			var bottom_padding = (Math.max(0, this.options.dataLength - row_stop)) * this.options.rowHeight;
 
-			// set the proper spacing between the top and bottom of the table
-			this.padding_before.height(top_padding);
-			this.padding_after.height(bottom_padding);
-
 			// now set all the rows that should be seen!
-			this._setRows(row_start, row_stop);
+			this._setRows(row_start, row_stop, null, function() {
+				// set the proper spacing between the top and bottom of the table
+				this.padding_before.height(top_padding);
+				this.padding_after.height(bottom_padding);
+			});
 
-			// set the
+			// set the scroll top
 			this.wrapper.scrollTop(top);
 		},
 		_getDataSlice : function(start, end, callback, sort) {
-			var self = this;
+			var self = this, overlap = this._determineOverlap(this.dataRange.start, this.dataRange.end, start, end, sort != null || this.resetTable);
 			if (typeof this.options.data === "function") {
+				// don't do anything if we're not executing past the threshold of an redraw
+				if (this.options.updateThreshold > 0 && overlap.add.length <= this.options.updateThreshold) {
+					return;
+				}
 				this.wrapper.addClass("ui-loading");
 				this.options.data.call(this.element, function(data) {
 					self.wrapper.removeClass("ui-loading");
-					callback(data);
+					callback(data, overlap);
 				}, {
 					start : start,
 					end : end,
-					sort : sort || []
+					sort : sort || [],
+					overlap : {
+						add : overlap.add.length,
+						remove : overlap.remove.length,
+					}
 				});
 			} else {
-				callback(this.options.data.slice(start, end));
+				callback(this.options.data.slice(start, end), overlap);
 			}
 		},
-		_setRows : function(start, end, sort_list) {
+		_setRows : function(start, end, sort, update_padding) {
 			var self = this;
-			this._getDataSlice(start, end, function(data) {
-				self._manipulateTable(start, end, data, sort_list != null);
-			}, sort_list);
+			this._getDataSlice(start, end, function(data, overlap) {
+				self._manipulateTable(start, end, data, overlap);
+				if (update_padding) {
+					update_padding.call(self);
+				}
+			}, sort);
 		},
-		_manipulateTable : function(start, end, data, empty_table) {
+		_manipulateTable : function(start, end, data, overlap) {
 			var self = this;
-			// get the overlaps
-			var alter = this._determineOverlap(this.dataRange.start, this.dataRange.end, start, end, empty_table || this.resetTable);
 			// make sure we set this back to false afterwards
 			this.resetTable = false;
 			// check if we are appending or prepending
@@ -306,18 +321,18 @@
 			var slice;
 
 			// remove if necessary
-			if (alter.remove.length > 0) {
+			if (overlap.remove.length > 0) {
 				// remove from head
-				if (alter.remove[0] === this.dataRange.start) {
-					slice = this.tbody.find("tr").slice(0, alter.remove.length);
+				if (overlap.remove[0] === this.dataRange.start) {
+					slice = this.tbody.find("> tr").slice(0, overlap.remove.length);
 				} else {
 					// remove from end
-					slice = this.tbody.find("tr").slice(-1 * alter.remove.length);
+					slice = this.tbody.find("> tr").slice(-1 * overlap.remove.length);
 				}
-				this.options.detach(alter.remove, slice);
+				this.options.detach(overlap.remove, slice);
 			}
 			// add if nencessary
-			$.each(alter.add, function(i, v) {
+			$.each(overlap.add, function(i, v) {
 				if (!data[v - start]) {
 					return;
 				}
