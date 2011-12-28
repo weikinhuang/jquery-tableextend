@@ -93,7 +93,7 @@
 			// *********************** SCROLL LOGIC ***********************
 
 			// master container for the contents of the scrollable table, and fixed header
-			var container = $("<div>").css({
+			var container = $("<div>").addClass("ui-tableextend ui-tableextend-container").css({
 				paddingTop : this.options.headerHeight + "px",
 				height : (this.options.height - this.options.headerHeight) + "px"
 			});
@@ -106,6 +106,9 @@
 			}).bind("scroll.tableextend", function() {
 				self.scroll(this.scrollTop);
 			});
+
+			// generate the loading overlay
+			var overlay = $("<div>").addClass("ui-tableextend ui-overlay");
 
 			// scrolled padding
 			this.padding_before = $("<div>").addClass("ui-tableextend ui-tableextend-padding ui-tableextend-padding-top");
@@ -125,7 +128,7 @@
 			this.element.addClass("ui-tableextend-body");
 
 			// put them all together
-			container.append(theader, wrapper);
+			container.append(wrapper, theader, overlay);
 
 			// keep local references
 			this.container = container;
@@ -164,21 +167,21 @@
 		},
 		_setOption : function(key, value) {
 			switch (key) {
-			case "data":
-				if ($.isArray(value)) {
-					this.options.dataLength = value.length;
-					// make a shallow copy of the data
-					value = value.slice(0);
-				}
-				this.resetTable = true;
-				break;
-			case "height":
-				this.container.css("height", value - this.options.headerHeight);
-				break;
-			case "headerHeight":
-				this.container.css("height", this.options.height - value);
-				this.theader.css("height", value);
-				break;
+				case "data":
+					if ($.isArray(value)) {
+						this.options.dataLength = value.length;
+						// make a shallow copy of the data
+						value = value.slice(0);
+					}
+					this.resetTable = true;
+					break;
+				case "height":
+					this.container.css("height", value - this.options.headerHeight);
+					break;
+				case "headerHeight":
+					this.container.css("height", this.options.height - value);
+					this.theader.css("height", value);
+					break;
 			}
 			return $.Widget.prototype._setOption.call(this, key, value);
 		},
@@ -283,9 +286,9 @@
 				if (this.options.updateThreshold > 0 && overlap.add.length <= this.options.updateThreshold) {
 					return;
 				}
-				this.wrapper.addClass("ui-loading");
+				this.container.addClass("ui-loading");
 				this.options.data.call(this.element, function(data) {
-					self.wrapper.removeClass("ui-loading");
+					self.container.removeClass("ui-loading");
 					callback(data, overlap);
 				}, {
 					start : start,
@@ -397,6 +400,9 @@
 				}
 			});
 		},
+		getCurrentSort : function() {
+			return this._processSortList(this.sortList);
+		},
 		_triggerSort : function(index, type, append) {
 			var t, i, l;
 			if (!append) {
@@ -466,7 +472,7 @@
 			return final_sort_order;
 		},
 		_updateTableOrder : function(sort_list) {
-			var self = this, sort_order = this._processSortList(sort_list);
+			var sort_order = this._processSortList(sort_list);
 			if (typeof this.options.data !== "function") {
 				// we'll just sort the data locally
 				this.options.data = $.ui.tableextend.sortMulti(this.options.data, sort_order);
