@@ -69,7 +69,7 @@
 		},
 		dataRange : {
 			start : -1,
-			end : -1,
+			end : -1
 		},
 		headers : null,
 		sortList : null,
@@ -296,7 +296,7 @@
 					sort : sort || [],
 					overlap : {
 						add : overlap.add.length,
-						remove : overlap.remove.length,
+						remove : overlap.remove.length
 					}
 				});
 			} else {
