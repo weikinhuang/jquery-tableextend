@@ -374,9 +374,11 @@
 			this.headers = [];
 			this.thead.find(this.options.headers).each(function(i) {
 				// here we want to bind the events for sorting
-				var sort_trigger = $(this);
+				var sort_trigger = $(this),
+				// we want a reference to the th/td
+				sort_header = (sort_trigger.is("td,th") ? sort_trigger : sort_trigger.closest("td,th")).addClass("ui-tableextend-header");
 
-				self.headers.push((sort_trigger.is("td,th") ? sort_trigger : sort_trigger.closest("td,th")).addClass("ui-tableextend-header"));
+				self.headers.push(sort_header);
 
 				if (self.options.headerSortSelector) {
 					sort_trigger = sort_trigger.find(self.options.headerSortSelector);
@@ -389,6 +391,7 @@
 					});
 					return;
 				} else {
+					sort_header.addClass("ui-tableextend-sortable").wrapInner("<div class='ui-tableextend-sortable-wrapper' />");
 					sort_trigger.bind("click.tableextend", function(e) {
 						e.preventDefault();
 						self._triggerSort(i, self._getSortOrder(i), e[self.options.sortMultiSortKey]);
