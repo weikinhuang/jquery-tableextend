@@ -118,17 +118,23 @@
 
 			// the table element that will now hold the table's header
 			var theader = $("<table>").addClass((this.element.attr("class") || "") + " ui-tableextend-header-container").css({
-				top : 0,
-				left : 0,
-				position : "absolute",
 				width : "100%",
 				height : this.options.headerHeight + "px"
 			});
 			theader.append(this.thead, "<tbody>");
 			this.element.addClass("ui-tableextend-body");
 
+			// wrapper for thead reshuffle
+			var theader_wrapper = $("<div>").addClass("ui-tableextend ui-tableextend-thead-wrapper").css({
+				top : 0,
+				left : 0,
+				position : "absolute",
+				width : "100%"
+			});
+			theader_wrapper.append(theader);
+
 			// put them all together
-			container.append(wrapper, theader, overlay);
+			container.append(wrapper, theader_wrapper, overlay);
 
 			// keep local references
 			this.container = container;
