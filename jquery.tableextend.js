@@ -198,6 +198,7 @@
 		// *********************** SCROLL LOGIC ***********************
 		scroll : function(top) {
 			var self = this;
+			top = top || 0;
 			self._trigger("scrollStart", null, {
 				top : top
 			});
@@ -250,8 +251,10 @@
 		_scroll : function(top) {
 			// no data, no scrolling
 			if (this.options.dataLength <= 0) {
+				this.container.addClass("ui-tableextend-empty");
 				return;
 			}
+			this.container.removeClass("ui-tableextend-empty");
 
 			// figure out what row we're supposed to be seeing
 			var index = Math.min(Math.max(0, Math.floor(top / this.options.rowHeight)), this.options.dataLength);
@@ -299,7 +302,7 @@
 				}, {
 					start : start,
 					end : end,
-					sort : sort || [],
+					sort : sort || this.getCurrentSort(),
 					overlap : {
 						add : overlap.add.length,
 						remove : overlap.remove.length
