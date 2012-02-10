@@ -291,8 +291,9 @@
 		_getDataSlice : function(start, end, callback, sort) {
 			var self = this, overlap = this._determineOverlap(this.dataRange.start, this.dataRange.end, start, end, sort != null || this.resetTable);
 			if (typeof this.options.data === "function") {
+				// if we're requesting the same set of data OR
 				// don't do anything if we're not executing past the threshold of an redraw
-				if (this.options.updateThreshold > 0 && overlap.add.length <= this.options.updateThreshold) {
+				if ((start === this.dataRange.start && end === this.dataRange.end) || (start > 0 && this.options.updateThreshold > 0 && overlap.add.length <= this.options.updateThreshold)) {
 					return;
 				}
 				this.container.addClass("ui-loading");
