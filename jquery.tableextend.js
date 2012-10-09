@@ -172,6 +172,7 @@
 			$.Widget.prototype.destroy.apply(this);
 		},
 		_setOption : function(key, value) {
+			var subtracted_padding;
 			switch (key) {
 				case "data":
 					if ($.isArray(value)) {
@@ -182,10 +183,12 @@
 					this.resetTable = true;
 					break;
 				case "height":
-					this.container.css("height", value - this.options.headerHeight);
+					subtracted_padding = this.container.css('box-sizing') == 'border-box' ? 0 : this.options.headerHeight;
+					this.container.css("height", value - subtracted_padding);
 					break;
 				case "headerHeight":
-					this.container.css("height", this.options.height - value);
+					subtracted_padding = this.container.css('box-sizing') == 'border-box' ? 0 : value;
+					this.container.css("height", this.options.height - subtracted_padding);
 					this.theader.css("height", value);
 					break;
 			}
